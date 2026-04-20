@@ -319,48 +319,91 @@ app.post("/api/checkout", requireAuth, async (req, res) => {
 
 app.get("/api/reports", requireAuth, async (req, res) => {
   const period = String(req.query.period || "daily").toLowerCase();
-  const periodConfig = {
-    daily: {
-      trunc: "day",
-      where: "WHERE created_at >= NOW() - INTERVAL '6 days'",
-      order: "ORDER BY period_start ASC",
-      labelFormat: { day: "2-digit", month: "short" }
-    },
-    monthly: {
-      trunc: "month",
-      where: "WHERE DATE_PART('year', created_at) = DATE_PART('year', CURRENT_DATE)",
-      order: "ORDER BY period_start ASC",
-      labelFormat: { month: "short" }
-    },
-    yearly: {
-      trunc: "year",
-      where: "",
-      order: "ORDER BY period_start ASC",
-      labelFormat: { year: "numeric" }
-    }
-  };
-
-  if (!periodConfig[period]) {
-    return res.status(400).json({ message: "Period tidak valid. Gunakan daily, monthly, atau yearly." });
-  }
-
-  const config = periodConfig[period];
-  const query = `
-    SELECT
-      DATE_TRUNC('${config.trunc}', created_at) AS period_start,
-      COALESCE(SUM(total_price), 0) AS total
-    FROM sales
-    ${config.where}
-    GROUP BY period_start
-    ${config.order}
-  `;
-
+  
   try {
-    const result = await pool.query(query);
-    const formatter = new Intl.DateTimeFormat("id-ID", config.labelFormat);
-    const labels = result.rows.map((row) => formatter.format(new Date(row.period_start)));
-    const values = result.rows.map((row) => Number(row.total));
-    const totalRevenue = values.reduce((sum, value) => sum + value, 0);
+    let labels = [];
+    let values = [];
+    let totalRevenue = 0;
+
+    if (period === "daily") {
+      // Weekly view: Monday to today
+      const weekConfig = {
+        trunc: "day",
+        where: "WHERE created_at >= DATE_TRUNC('week', NOW())",
+        order: "ORDER BY period_start ASC",
+        labelFormat: { weekday: "short", day: "2-digit", month: "short" }
+      };
+
+      const query = `
+        SELECT
+          DATE_TRUNC('${weekConfig.trunc}', created_at) AS period_start,
+          COALESCE(SUM(total_price), 0) AS total
+        FROM sales
+        ${weekConfig.where}
+        GROUP BY period_start
+        ${weekConfig.order}
+      `;
+
+      const result = await pool.query(query);
+      const formatter = new Intl.DateTimeFormat("id-ID", weekConfig.labelFormat);
+      labels = result.rows.map((row) => formatter.format(new Date(row.period_start)));
+      values = result.rows.map((row) => Number(row.total));
+      totalRevenue = values.reduce((sum, value) => sum + value, 0);
+
+    } else if (period === "monthly") {
+      // Monthly view: All months in current year (Jan-Dec)
+      const currentYear = new Date().getFullYear();
+      const query = `
+        SELECT
+          DATE_TRUNC('month', created_at) AS period_start,
+          COALESCE(SUM(total_price), 0) AS total
+        FROM sales
+        WHERE DATE_PART('year', created_at) = $1
+        GROUP BY period_start
+        ORDER BY period_start ASC
+      `;
+
+      const result = await pool.query(query, [currentYear]);
+      const monthFormatter = new Intl.DateTimeFormat("id-ID", { month: "short" });
+      
+      // Create all 12 months
+      const allMonths = [];
+      for (let i = 0; i < 12; i++) {
+        const monthDate = new Date(currentYear, i, 1);
+        allMonths.push({ date: monthDate, label: monthFormatter.format(monthDate), value: 0 });
+      }
+
+      // Map results to months
+      const resultMap = new Map(result.rows.map((row) => [new Date(row.period_start).getMonth(), Number(row.total)]));
+      labels = allMonths.map((m) => m.label);
+      values = allMonths.map((m, i) => resultMap.get(i) || 0);
+      totalRevenue = values.reduce((sum, value) => sum + value, 0);
+
+    } else if (period === "yearly") {
+      // Yearly view: Previous year (2025) and current year (2026)
+      const currentYear = new Date().getFullYear();
+      const previousYear = currentYear - 1;
+      
+      const query = `
+        SELECT
+          DATE_PART('year', created_at)::INTEGER AS year,
+          COALESCE(SUM(total_price), 0) AS total
+        FROM sales
+        WHERE DATE_PART('year', created_at) IN ($1, $2)
+        GROUP BY year
+        ORDER BY year ASC
+      `;
+
+      const result = await pool.query(query, [previousYear, currentYear]);
+      const resultMap = new Map(result.rows.map((row) => [row.year, Number(row.total)]));
+      
+      labels = [previousYear.toString(), currentYear.toString()];
+      values = [resultMap.get(previousYear) || 0, resultMap.get(currentYear) || 0];
+      totalRevenue = values.reduce((sum, value) => sum + value, 0);
+
+    } else {
+      return res.status(400).json({ message: "Period tidak valid. Gunakan daily, monthly, atau yearly." });
+    }
 
     return res.json({
       period,

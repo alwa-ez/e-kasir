@@ -15,6 +15,30 @@ function formatRupiah(value) {
   }).format(value);
 }
 
+function getPeriodLabel(period) {
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+  
+  const formatter = new Intl.DateTimeFormat("id-ID", { 
+    day: "2-digit", 
+    month: "long", 
+    year: "numeric" 
+  });
+  
+  switch(period) {
+    case "daily":
+      return `Minggu ini (${formatter.format(weekStart)} - ${formatter.format(now)})`;
+    case "monthly":
+      return `Tahun ini (Januari - Desember ${now.getFullYear()})`;
+    case "yearly":
+      const previousYear = now.getFullYear() - 1;
+      return `Perbandingan Tahunan (${previousYear} - ${now.getFullYear()})`;
+    default:
+      return period;
+  }
+}
+
 async function ensureSession() {
   try {
     const response = await fetch("/api/me");
@@ -33,10 +57,12 @@ async function ensureSession() {
   }
 }
 
-function renderChart(labels, values) {
+function renderChart(labels, values, period) {
   if (salesChart) {
     salesChart.destroy();
   }
+
+  const periodLabel = getPeriodLabel(period);
 
   salesChart = new Chart(chartCanvas, {
     type: "line",
@@ -44,7 +70,7 @@ function renderChart(labels, values) {
       labels,
       datasets: [
         {
-          label: "Penjualan",
+          label: periodLabel,
           data: values,
           borderColor: "#6f87b7",
           backgroundColor: "rgba(111, 135, 183, 0.22)",
@@ -61,7 +87,15 @@ function renderChart(labels, values) {
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          display: false
+          display: true,
+          position: "bottom",
+          labels: {
+            boxWidth: 12,
+            padding: 20,
+            font: {
+              size: 13
+            }
+          }
         },
         tooltip: {
           callbacks: {
@@ -101,10 +135,10 @@ async function loadReport(period) {
     const values = data.values.length ? data.values : [0];
 
     totalRevenueEl.textContent = formatRupiah(data.totalRevenue || 0);
-    renderChart(labels, values);
+    renderChart(labels, values, period);
   } catch (error) {
     totalRevenueEl.textContent = "-";
-    renderChart(["Error"], [0]);
+    renderChart(["Error"], [0], period);
     alert(error.message || "Terjadi gangguan saat mengambil laporan.");
   }
 }
