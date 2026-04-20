@@ -1,7 +1,7 @@
 {
   "name": "e-kasir-backend",
   "version": "1.0.0",
-  "description": "Simple cashier backend with Express and SQLite",
+  "description": "Simple cashier backend with Express and PostgreSQL",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,6 +10,6 @@
     "bcrypt": "^5.1.1",
     "express": "^4.19.2",
     "express-session": "^1.18.1",
-    "sqlite3": "^5.1.7"
+    "pg": "^8.20.0"
   }
 }

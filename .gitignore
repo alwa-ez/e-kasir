@@ -1,5 +1,6 @@
 node_modules/
 backend/node_modules/
-backend/db/kasir.db
+.env
+backend/.env
 .DS_Store
 Thumbs.db

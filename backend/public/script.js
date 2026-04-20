@@ -4,18 +4,23 @@ const statusText = document.getElementById("statusText");
 const logoutBtn = document.getElementById("logoutBtn");
 
 async function updateSessionInfo() {
-  const response = await fetch("/api/me");
-  const data = await response.json();
+  try {
+    const response = await fetch("/api/me");
+    const data = await response.json();
 
-  if (!response.ok || !data.loggedIn) {
-    statusText.textContent = "Belum login";
+    if (!response.ok || !data.loggedIn) {
+      statusText.textContent = "Belum login";
+      logoutBtn.disabled = true;
+      return;
+    }
+
+    statusText.textContent = `Login sebagai: ${data.user.username}`;
+    logoutBtn.disabled = false;
+    window.location.href = "/dashboard.html";
+  } catch (error) {
+    statusText.textContent = "Tidak dapat terhubung ke server";
     logoutBtn.disabled = true;
-    return;
   }
-
-  statusText.textContent = `Login sebagai: ${data.user.username}`;
-  logoutBtn.disabled = false;
-  window.location.href = "/dashboard.html";
 }
 
 loginForm.addEventListener("submit", async (event) => {

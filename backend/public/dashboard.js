@@ -143,32 +143,41 @@ function addToCart(productId) {
 }
 
 async function loadSession() {
-  const { response, data } = await api.getSession();
+  try {
+    const { response, data } = await api.getSession();
 
-  if (!response.ok || !data.loggedIn) {
-    window.location.href = "/";
+    if (!response.ok || !data.loggedIn) {
+      window.location.href = "/";
+      return false;
+    }
+
+    currentUser = data.user;
+    welcomeText.textContent = `Halo, ${data.user.username}. Selamat bekerja.`;
+    addProductToggleBtn.disabled = false;
+    addProductToggleBtn.title = "Buka form tambah produk";
+    productHint.textContent = "Masukkan detail produk baru untuk ditambahkan ke database.";
+    return true;
+  } catch (error) {
+    welcomeText.textContent = "Gagal terhubung ke server. Coba refresh halaman.";
     return false;
   }
-
-  currentUser = data.user;
-  welcomeText.textContent = `Halo, ${data.user.username}. Selamat bekerja.`;
-  addProductToggleBtn.disabled = false;
-  addProductToggleBtn.title = "Buka form tambah produk";
-  productHint.textContent = "Masukkan detail produk baru untuk ditambahkan ke database.";
-  return true;
 }
 
 async function loadProducts() {
-  const { response, data } = await api.getProducts(true);
+  try {
+    const { response, data } = await api.getProducts(true);
 
-  if (!response.ok) {
-    alert(data.message || "Gagal mengambil data produk.");
-    productList.innerHTML = '<div class="empty">Gagal memuat produk.</div>';
-    return;
+    if (!response.ok) {
+      alert(data.message || "Gagal mengambil data produk.");
+      productList.innerHTML = '<div class="empty">Gagal memuat produk.</div>';
+      return;
+    }
+
+    products = data.products;
+    renderProducts();
+  } catch (error) {
+    productList.innerHTML = '<div class="empty">Tidak dapat terhubung ke server.</div>';
   }
-
-  products = data.products;
-  renderProducts();
 }
 
 payBtn.addEventListener("click", async () => {
