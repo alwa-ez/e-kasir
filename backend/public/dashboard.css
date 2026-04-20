@@ -60,6 +60,34 @@ body {
   gap: 8px;
 }
 
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-weight: 600;
+  background: #f4f6fb;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--text);
+  border-color: #c8cfdf;
+}
+
+.nav-link.active {
+  color: #fff;
+  background: #6f87b7;
+  border-color: #6f87b7;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
@@ -111,6 +139,12 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.product-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .muted {

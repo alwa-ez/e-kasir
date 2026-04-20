@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const { Pool } = require("pg");
 const session = require("express-session");
@@ -7,20 +9,6 @@ const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "dev-secret-change-this",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24
-    }
-  })
-);
 
 const schemaPath = path.join(__dirname, "db", "schema.sql");
 const publicPath = path.join(__dirname, "public");
@@ -36,6 +24,42 @@ const pool = new Pool({
     : false
 });
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "dev-secret-change-this",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24
+    }
+  })
+);
+app.use(express.static(publicPath));
+
+function parseInteger(value) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function parseNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function badRequest(res, message) {
+  return res.status(400).json({ message });
+}
+
+function serverError(res, message, error) {
+  return res.status(500).json({
+    message,
+    detail: error?.message || "Database error."
+  });
+}
+
 async function initializeDatabase() {
   try {
     await pool.query("SELECT 1");
@@ -44,12 +68,10 @@ async function initializeDatabase() {
     await pool.query(schema);
     console.log("Database schema initialized.");
   } catch (error) {
-    console.error("Failed to initialize database:", error.message);
+    console.error("Failed to initialize database:", error.message || error);
     process.exit(1);
   }
 }
-
-app.use(express.static(publicPath));
 
 function requireAuth(req, res, next) {
   if (!req.session.user) {
@@ -144,32 +166,81 @@ app.get("/api/products", requireAuth, async (req, res) => {
 app.post("/api/products", requireAuth, async (req, res) => {
   const { name, price, stock } = req.body;
   const normalizedName = String(name || "").trim();
-  const parsedPrice = Number(price);
-  const parsedStock = Number(stock);
+  const parsedPrice = parseNumber(price);
+  const parsedStock = parseInteger(stock);
 
   if (!normalizedName) {
-    return res.status(400).json({ message: "Nama produk wajib diisi." });
+    return badRequest(res, "Nama produk wajib diisi.");
   }
 
-  if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
-    return res.status(400).json({ message: "Harga produk tidak valid." });
+  if (parsedPrice === null || parsedPrice < 0) {
+    return badRequest(res, "Harga produk tidak valid.");
   }
 
-  if (!Number.isInteger(parsedStock) || parsedStock < 0) {
-    return res.status(400).json({ message: "Stok produk tidak valid." });
+  if (parsedStock === null || parsedStock < 0) {
+    return badRequest(res, "Stok produk tidak valid.");
   }
 
   try {
-    const result = await pool.query(
+    const existingProductResult = await pool.query(
+      "SELECT id, name, price, stock FROM products WHERE LOWER(name) = LOWER($1) LIMIT 1",
+      [normalizedName]
+    );
+
+    if (existingProductResult.rows.length > 0) {
+      const existingProduct = existingProductResult.rows[0];
+      const updatedResult = await pool.query(
+        "UPDATE products SET stock = stock + $1, price = $2 WHERE id = $3 RETURNING id, name, price, stock",
+        [parsedStock, parsedPrice, existingProduct.id]
+      );
+
+      return res.json({
+        message: `Stok produk ${existingProduct.name} berhasil ditambahkan.`,
+        product: updatedResult.rows[0]
+      });
+    }
+
+    const insertedResult = await pool.query(
       "INSERT INTO products (name, price, stock) VALUES ($1, $2, $3) RETURNING id, name, price, stock",
       [normalizedName, parsedPrice, parsedStock]
     );
     return res.status(201).json({
       message: "Produk berhasil ditambahkan.",
+      product: insertedResult.rows[0]
+    });
+  } catch (error) {
+    return serverError(res, "Gagal menambahkan produk.", error);
+  }
+});
+
+app.patch("/api/products/:id/stock", requireAuth, async (req, res) => {
+  const productId = parseInteger(req.params.id);
+  const stockToAdd = parseInteger(req.body.stockToAdd);
+
+  if (productId === null || productId <= 0) {
+    return badRequest(res, "ID produk tidak valid.");
+  }
+
+  if (stockToAdd === null || stockToAdd <= 0) {
+    return badRequest(res, "Jumlah stok tambahan harus bilangan bulat lebih dari 0.");
+  }
+
+  try {
+    const result = await pool.query(
+      "UPDATE products SET stock = stock + $1 WHERE id = $2 RETURNING id, name, price, stock",
+      [stockToAdd, productId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Produk tidak ditemukan." });
+    }
+
+    return res.json({
+      message: `Stok produk ${result.rows[0].name} berhasil ditambahkan.`,
       product: result.rows[0]
     });
   } catch (error) {
-    return res.status(500).json({ message: "Gagal menambahkan produk." });
+    return serverError(res, "Gagal menambahkan stok produk.", error);
   }
 });
 
@@ -182,10 +253,10 @@ app.post("/api/checkout", requireAuth, async (req, res) => {
 
   const groupedItems = new Map();
   for (const item of items) {
-    const id = Number(item.id);
-    const qty = Number(item.qty);
-    if (!Number.isInteger(id) || !Number.isInteger(qty) || qty <= 0) {
-      return res.status(400).json({ message: "Data keranjang tidak valid." });
+    const id = parseInteger(item.id);
+    const qty = parseInteger(item.qty);
+    if (id === null || qty === null || qty <= 0) {
+      return badRequest(res, "Data keranjang tidak valid.");
     }
     groupedItems.set(id, (groupedItems.get(id) || 0) + qty);
   }
@@ -201,6 +272,7 @@ app.post("/api/checkout", requireAuth, async (req, res) => {
     );
     const productMap = new Map(productResult.rows.map((product) => [Number(product.id), product]));
     let totalPrice = 0;
+    const saleItems = [];
 
     for (const item of normalizedItems) {
       const product = productMap.get(item.id);
@@ -212,25 +284,94 @@ app.post("/api/checkout", requireAuth, async (req, res) => {
           .status(400)
           .json({ message: `Stok ${product.name} tidak cukup. Sisa stok: ${product.stock}.` });
       }
-      totalPrice += Number(product.price) * item.qty;
+      const price = Number(product.price);
+      const subtotal = price * item.qty;
+      totalPrice += subtotal;
+      saleItems.push({
+        id: item.id,
+        name: product.name,
+        price,
+        qty: item.qty,
+        subtotal
+      });
     }
 
     await client.query("BEGIN");
     for (const item of normalizedItems) {
       await client.query("UPDATE products SET stock = stock - $1 WHERE id = $2", [item.qty, item.id]);
     }
+    await client.query("INSERT INTO sales (total_price, items) VALUES ($1, $2::jsonb)", [
+      totalPrice,
+      JSON.stringify(saleItems)
+    ]);
 
     await client.query("COMMIT");
     return res.json({ message: "Check out berhasil.", totalPrice });
   } catch (error) {
     try {
       await client.query("ROLLBACK");
-    } catch (rollbackError) {
-      // Ignore rollback errors.
-    }
+    } catch (rollbackError) {}
     return res.status(500).json({ message: "Gagal memproses checkout." });
   } finally {
     client.release();
+  }
+});
+
+app.get("/api/reports", requireAuth, async (req, res) => {
+  const period = String(req.query.period || "daily").toLowerCase();
+  const periodConfig = {
+    daily: {
+      trunc: "day",
+      where: "WHERE created_at >= NOW() - INTERVAL '6 days'",
+      order: "ORDER BY period_start ASC",
+      labelFormat: { day: "2-digit", month: "short" }
+    },
+    monthly: {
+      trunc: "month",
+      where: "WHERE DATE_PART('year', created_at) = DATE_PART('year', CURRENT_DATE)",
+      order: "ORDER BY period_start ASC",
+      labelFormat: { month: "short" }
+    },
+    yearly: {
+      trunc: "year",
+      where: "",
+      order: "ORDER BY period_start ASC",
+      labelFormat: { year: "numeric" }
+    }
+  };
+
+  if (!periodConfig[period]) {
+    return res.status(400).json({ message: "Period tidak valid. Gunakan daily, monthly, atau yearly." });
+  }
+
+  const config = periodConfig[period];
+  const query = `
+    SELECT
+      DATE_TRUNC('${config.trunc}', created_at) AS period_start,
+      COALESCE(SUM(total_price), 0) AS total
+    FROM sales
+    ${config.where}
+    GROUP BY period_start
+    ${config.order}
+  `;
+
+  try {
+    const result = await pool.query(query);
+    const formatter = new Intl.DateTimeFormat("id-ID", config.labelFormat);
+    const labels = result.rows.map((row) => formatter.format(new Date(row.period_start)));
+    const values = result.rows.map((row) => Number(row.total));
+    const totalRevenue = values.reduce((sum, value) => sum + value, 0);
+
+    return res.json({
+      period,
+      labels,
+      values,
+      totalRevenue
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Gagal mengakses data laporan dari PostgreSQL."
+    });
   }
 });
 
@@ -243,8 +384,13 @@ app.post("/api/logout", (req, res) => {
   });
 });
 
-initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+initializeDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Fatal error:", error?.message || error);
+    process.exit(1);
   });
-});

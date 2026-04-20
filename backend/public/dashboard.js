@@ -12,7 +12,6 @@ const addProductForm = document.getElementById("addProductForm");
 
 let products = [];
 const cart = new Map();
-let currentUser = null;
 
 function formatRupiah(value) {
   return new Intl.NumberFormat("id-ID", {
@@ -22,35 +21,44 @@ function formatRupiah(value) {
   }).format(value);
 }
 
+async function requestJson(url, options) {
+  const response = await fetch(url, options);
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = {};
+  }
+  return { response, data };
+}
+
 const api = {
   async getSession() {
-    const response = await fetch("/api/me");
-    const data = await response.json();
-    return { response, data };
+    return requestJson("/api/me");
   },
-  async getProducts(includeAll = false) {
-    const url = includeAll ? "/api/products?all=1" : "/api/products";
-    const response = await fetch(url);
-    const data = await response.json();
-    return { response, data };
+  async getProducts() {
+    return requestJson("/api/products");
   },
   async addProduct(payload) {
-    const response = await fetch("/api/products", {
+    return requestJson("/api/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    const data = await response.json();
-    return { response, data };
+  },
+  async addStock(productId, stockToAdd) {
+    return requestJson(`/api/products/${productId}/stock`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stockToAdd })
+    });
   },
   async checkout(items) {
-    const response = await fetch("/api/checkout", {
+    return requestJson("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items })
     });
-    const data = await response.json();
-    return { response, data };
   },
   async logout() {
     return fetch("/api/logout", { method: "POST" });
@@ -70,18 +78,60 @@ function renderProducts() {
           <strong>${product.name}</strong>
           <div class="product-meta">
             <span class="muted">${formatRupiah(product.price)} | Stok: ${product.stock}</span>
-            <button type="button" data-id="${product.id}">Tambah</button>
+            <div class="product-actions">
+              <button type="button" data-add-id="${product.id}" ${Number(product.stock) <= 0 ? "disabled" : ""}>
+                ${Number(product.stock) <= 0 ? "Stok Habis" : "Tambah"}
+              </button>
+              <button type="button" class="ghost-btn" data-stock-id="${product.id}">Tambah Stok</button>
+            </div>
           </div>
         </div>
       `
     )
     .join("");
 
-  productList.querySelectorAll("button[data-id]").forEach((button) => {
+  productList.querySelectorAll("button[data-add-id]").forEach((button) => {
     button.addEventListener("click", () => {
-      addToCart(Number(button.dataset.id));
+      addToCart(Number(button.dataset.addId));
     });
   });
+
+  productList.querySelectorAll("button[data-stock-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await handleAddStock(Number(button.dataset.stockId));
+    });
+  });
+}
+
+async function handleAddStock(productId) {
+  const product = products.find((item) => item.id === productId);
+  if (!product) {
+    return;
+  }
+
+  const rawQty = window.prompt(`Tambah stok untuk ${product.name}. Masukkan jumlah stok:`, "1");
+  if (rawQty === null) {
+    return;
+  }
+
+  const qty = Number(rawQty);
+  if (!Number.isInteger(qty) || qty <= 0) {
+    alert("Jumlah stok harus bilangan bulat lebih dari 0.");
+    return;
+  }
+
+  try {
+    const { response, data } = await api.addStock(productId, qty);
+    const fallbackMessage = response.ok
+      ? "Stok berhasil ditambahkan."
+      : `Gagal menambahkan stok (HTTP ${response.status}).`;
+    alert(data.message || fallbackMessage);
+    if (response.ok) {
+      await loadProducts();
+    }
+  } catch (error) {
+    alert("Gagal terhubung ke server saat menambahkan stok.");
+  }
 }
 
 function renderCart() {
@@ -126,9 +176,14 @@ function addToCart(productId) {
     return;
   }
 
+  if (Number(product.stock) <= 0) {
+    alert("Stok produk habis. Tambahkan stok dulu lewat form Add Product.");
+    return;
+  }
+
   const currentQty = cart.get(productId)?.qty || 0;
   if (currentQty >= product.stock) {
-    alert("Jumlah di keranjang melebihi stok.");
+    alert("Jumlah di keranjang sudah mencapai batas stok produk.");
     return;
   }
 
@@ -151,7 +206,6 @@ async function loadSession() {
       return false;
     }
 
-    currentUser = data.user;
     welcomeText.textContent = `Halo, ${data.user.username}. Selamat bekerja.`;
     addProductToggleBtn.disabled = false;
     addProductToggleBtn.title = "Buka form tambah produk";
@@ -165,7 +219,7 @@ async function loadSession() {
 
 async function loadProducts() {
   try {
-    const { response, data } = await api.getProducts(true);
+    const { response, data } = await api.getProducts();
 
     if (!response.ok) {
       alert(data.message || "Gagal mengambil data produk.");
@@ -201,7 +255,7 @@ payBtn.addEventListener("click", async () => {
   alert(`${data.message} Total: ${formatRupiah(data.totalPrice)}`);
   cart.clear();
   renderCart();
-  loadProducts();
+  await loadProducts();
 });
 
 refreshProductsBtn.addEventListener("click", () => {
@@ -218,11 +272,11 @@ addProductForm.addEventListener("submit", async (event) => {
   };
 
   const { response, data } = await api.addProduct(payload);
-  alert(data.message);
+  alert(data.message || "Permintaan diproses.");
 
   if (response.ok) {
     addProductForm.reset();
-    loadProducts();
+    await loadProducts();
   }
 });
 

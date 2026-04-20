@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>E-Kasir - Laporan</title>
+    <link rel="stylesheet" href="/reports.css" />
+  </head>
+  <body>
+    <main class="reports-page">
+      <header class="topbar">
+        <div>
+          <h1>Laporan Penjualan</h1>
+          <p id="welcomeText">Memuat data user...</p>
+        </div>
+        <div class="topbar-actions">
+          <nav class="nav-links" aria-label="Main navigation">
+            <a class="nav-link" href="/dashboard.html">Kasir</a>
+            <a class="nav-link active" href="/reports.html">Laporan</a>
+          </nav>
+          <button id="logoutBtn" type="button">Logout</button>
+        </div>
+      </header>
+
+      <section class="report-panel">
+        <article class="summary-card">
+          <p>Total Pendapatan</p>
+          <h2 id="totalRevenue">Rp 0</h2>
+        </article>
+
+        <div class="period-controls" role="group" aria-label="Pilih periode laporan">
+          <button type="button" data-period="daily" class="period-btn active">Hari</button>
+          <button type="button" data-period="monthly" class="period-btn">Bulan</button>
+          <button type="button" data-period="yearly" class="period-btn">Tahun</button>
+        </div>
+
+        <div class="chart-wrap">
+          <canvas id="salesChart"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/reports.js"></script>
+  </body>
+</html>
