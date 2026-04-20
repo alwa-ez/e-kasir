@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>E-Kasir - Login & Register</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <section class="card">
+        <div class="brand">
+          <h1>E-Kasir</h1>
+          <p>Aplikasi kasir sederhana</p>
+        </div>
+
+        <div class="grid">
+          <form id="loginForm" class="form">
+            <h2>Login</h2>
+            <label for="loginUsername">Username</label>
+            <input id="loginUsername" name="username" type="text" required />
+
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" name="password" type="password" required />
+
+            <button type="submit">Masuk</button>
+          </form>
+
+          <form id="registerForm" class="form">
+            <h2>Register</h2>
+            <label for="registerUsername">Username</label>
+            <input id="registerUsername" name="username" type="text" required />
+
+            <label for="registerPassword">Password</label>
+            <input id="registerPassword" name="password" type="password" required />
+
+            <button type="submit">Daftar</button>
+          </form>
+        </div>
+
+        <section class="status">
+          <p id="statusText">Belum login</p>
+          <button id="logoutBtn" type="button">Logout</button>
+        </section>
+      </section>
+    </main>
+
+    <script src="/script.js"></script>
+  </body>
+</html>

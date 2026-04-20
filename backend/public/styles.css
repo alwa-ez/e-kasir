@@ -1,0 +1,153 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-soft: #fbfbfc;
+  --text: #2f3441;
+  --muted: #7a8090;
+  --primary: #7c86a3;
+  --primary-hover: #666f8e;
+  --danger: #c88f94;
+  --danger-hover: #b0787d;
+  --border: #e7e9ee;
+  --shadow: 0 10px 24px rgba(35, 41, 56, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  background: linear-gradient(140deg, #f3f4f7, var(--bg));
+}
+
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+
+.card {
+  width: min(920px, 100%);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 30px;
+  display: grid;
+  gap: 22px;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 2vw, 1.8rem);
+}
+
+.brand p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.form {
+  display: grid;
+  gap: 11px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.form h2 {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+}
+
+label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #d9dde6;
+  border-radius: 9px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: #fff;
+}
+
+input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(124, 134, 163, 0.2);
+}
+
+button {
+  border: 0;
+  border-radius: 9px;
+  padding: 11px 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: var(--primary);
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+button:hover {
+  background: var(--primary-hover);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+.status {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#statusText {
+  margin: 0;
+  color: var(--muted);
+}
+
+#logoutBtn {
+  background: var(--danger);
+}
+
+#logoutBtn:hover {
+  background: var(--danger-hover);
+}
+
+@media (max-width: 760px) {
+  .container {
+    padding: 16px;
+    align-items: flex-start;
+  }
+
+  .card {
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

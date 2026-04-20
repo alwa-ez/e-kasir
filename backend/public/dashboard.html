@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>E-Kasir - Dashboard</title>
+    <link rel="stylesheet" href="/dashboard.css" />
+  </head>
+  <body>
+    <main class="dashboard">
+      <header class="topbar">
+        <div>
+          <h1>Dashboard Kasir</h1>
+          <p id="welcomeText">Memuat data user...</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="addProductToggleBtn" type="button">Add Product</button>
+          <button id="logoutBtn" type="button">Logout</button>
+        </div>
+      </header>
+
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>List Produk</h2>
+            <button id="refreshProductsBtn" type="button" class="ghost-btn">Refresh</button>
+          </div>
+          <div id="productList" class="product-list"></div>
+        </article>
+
+        <article class="panel">
+          <h2>Keranjang Belanja</h2>
+          <div id="cartList" class="cart-list"></div>
+          <div class="checkout">
+            <p>Total: <strong id="totalPrice">Rp 0</strong></p>
+            <button id="payBtn" type="button">Check Out</button>
+          </div>
+        </article>
+      </section>
+
+      <section id="addProductPanel" class="panel hidden">
+        <h2>Add Product</h2>
+        <p id="productHint" class="muted">Masukkan detail produk baru untuk ditambahkan ke daftar barang.</p>
+        <form id="addProductForm" class="admin-form">
+          <div class="field">
+            <label for="productName">Nama Produk</label>
+            <input id="productName" name="name" type="text" required />
+          </div>
+          <div class="field">
+            <label for="productPrice">Harga</label>
+            <input id="productPrice" name="price" type="number" min="0" required />
+          </div>
+          <div class="field">
+            <label for="productStock">Stok</label>
+            <input id="productStock" name="stock" type="number" min="0" required />
+          </div>
+          <button type="submit">Add Product</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="/dashboard.js"></script>
+  </body>
+</html>
